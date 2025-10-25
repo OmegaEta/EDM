@@ -100,7 +100,7 @@ end
 GOSPA02_EDMPMBM = sum(GOSPA,3) / numMC;
 for i=1:4
     figure(1+i)
-    plot(1:K,GOSPA02_EDM(:,i),'-r',LineWidth=2);
+    plot(1:K,GOSPA02_EDMPMBM(:,i),'-r',LineWidth=2);
     hold on;
     title(model.GOSPAtitles{i});%
 end
@@ -165,7 +165,7 @@ end
     end
     simulation_time(t,2) = toc;
 end
-GOSPA02_GGIW = sum(GOSPA_,3) / numMC;
+GOSPA02_GGIWPMBM = sum(GOSPA_,3) / numMC;
 
 for i=1:4
     figure(1+i)
