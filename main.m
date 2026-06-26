@@ -1,19 +1,23 @@
 clc;clear;dbstop if error;
-% clc;clear;close all;dbstop if error;
+% clc;clear;close all;dbstop if error;EDM
 dbstop if error ;
 addpath(genpath('.\Scenario'));addpath(genpath('.\lib'));
 addpath(genpath('.\lib_EDM_PMBM'));addpath(genpath('.\lib_EDM'))
-scenario = 2;
+scenario = 1;
 %Parameter setting.
 if scenario == 1
     modelparas1;
 elseif scenario == 2
     modelparas2;
+elseif scenario ==3
+    modelparas3;
+else
+    modelparas4;
 end
 
 %Number of Monte Carlo Simulations
 % numMC = length(Scenario.Z);
-numMC=100;
+numMC=1;
 fig = 1;
 %Parameters used in GOSPA metric
 c = 20;
@@ -22,15 +26,20 @@ p = 1;
 %Number of time steps
 K = model.K;
 
-GOSPA = zeros(K,5,numMC);
-GOSPA_ = zeros(K,5,numMC);
+GOSPA = zeros(K,4,numMC);
+GOSPA_ = zeros(K,4,numMC);
 trajectoryEstimates = cell(numMC,1);
-simulation_time = zeros(numMC,2);
+simulation_time = zeros(numMC,5);
+
+step_time = zeros(5, K);   %每个滤波器的时间消耗，一共五个
 
 %% EDM-PMBM
 if 1
 model.birth.GGIW = model.birth.irregularGGIW;
 for t = 1:numMC
+    if 0
+        t=t-1;
+    end
     Z = Scenario.Z{t};
     % Initialisation
     PPP.w = log(model.birth.w);
@@ -42,11 +51,11 @@ for t = 1:numMC
         clf(1);
     estimates = cell(K,1);
     
-    tic
+    
     for k = 1:K
         %Print info
         pause(0);
-
+        EDM_time = tic; %%时间开始
         axis(model.Scenario_range);
         
         hold on;
@@ -89,18 +98,20 @@ if fig == 1 && t==1
 end
          drawnow;
 
+        step_time(1, k) = toc(EDM_time);
         if k < K
             [PPP,MBM] = predictPMBM(PPP,MBM,model);
 %             ys = evaluateFourierSeries(MBM.track{2, 1}.Bern.GGIW(end).Shape_coefficients.a,MBM.track{2, 1}.Bern.GGIW(end).Shape_coefficients.b,model.direction_angle);
 %             y = evaluateFourierSeries(MBM.track{1, 1}.Bern.GGIW(end).shape.dilation_coefficients.a,MBM.track{1, 1}.Bern.GGIW(end).shape.dilation_coefficients.b,model.direction_angle);
         end
+         simulation_time(t,k,1) = toc(EDMTIME);
     end
-    simulation_time(t,1) = toc;
+%     simulation_time(t,1) = toc;
 end
 GOSPA02_EDMPMBM = sum(GOSPA,3) / numMC;
 for i=1:4
     figure(1+i)
-    plot(1:K,GOSPA02_EDMPMBM(:,i),'-r',LineWidth=2);
+    plot(1:K,GOSPA02_EDMPMBM(:,i),'-b');
     hold on;
     title(model.GOSPAtitles{i});%
 end
@@ -111,6 +122,9 @@ end
 if 1
 addpath(genpath('.\lib_GGIW_PMBM'));addpath(genpath('.\lib'));
 for t = 1:numMC
+    if 0
+        t=t-1;
+    end
     Z = Scenario.Z{t};
     % Initialisation
     PPP.w = log(model.birth.w);
@@ -121,10 +135,11 @@ for t = 1:numMC
     
     estimates = cell(K,1);
     
-    tic
+   
     for k = 1:K
         %Print info
         pause(0);
+         ggiwtime=tic;
         figure(1);
 %         clf(1);
         axis(model.Scenario_range);
@@ -140,7 +155,8 @@ for t = 1:numMC
         [estimates{k},trajectoryEstimates{t}{k}] = estimator(MBM,model);
 
         %Evaluate filtering performance using GOSPA
-        GOSPA_(k,:,t) = GOSPAmetric_EDM(estimates{k},groundTruth_target_irregular{k},c,p);
+        GOSPA_(k,:,t) = GOSPAmetric(estimates{k},groundTruth{k},c,p);
+%         GOSPA_(k,:,t) = GOSPAmetric_EDM(estimates{k},groundTruth_target_irregular{k},c,p);
 
 if fig == 1 && t==1
         figure(1);
@@ -152,7 +168,7 @@ if fig == 1 && t==1
         for j = 1:i0
             figure(1);
             hold on
-            [x, y] = Sigmacircle(estimates{k}.x(1,j),estimates{k}.x(2,j),estimates{k}.X(:,:,j),2,j);
+            [x, y] = Sigmacircle_(estimates{k}.x(1,j),estimates{k}.x(2,j),estimates{k}.X(:,:,j),2,3);
 %             [x,y] = irregularcircle({estimates{k}.r{j,1}},estimates{k}.x(:,j),model.direction_angle,j);
 
         end
@@ -162,14 +178,15 @@ end
         if k < K
             [PPP,MBM] = predictPMBM(PPP,MBM,model);
         end
+         simulation_time(t,k,2) = toc(ggiwtime);
     end
-    simulation_time(t,2) = toc;
+   
 end
 GOSPA02_GGIWPMBM = sum(GOSPA_,3) / numMC;
 
 for i=1:4
     figure(1+i)
-    plot(1:K,GOSPA02_GGIWPMBM(:,i),'-b');
+    plot(1:K,GOSPA02_GGIWPMBM(:,i),'-b',LineWidth=2);
     hold on;
     title(model.GOSPAtitles{i}); 
     legend('GGIW-PMBM'); 
@@ -177,6 +194,108 @@ end
 
 rmpath(genpath('.\lib_PMBM'));
 end
+
+%% Smooth-pmbm
+addpath(genpath('.\smoother_PMBM'));
+
+%每10次，平滑一次
+smooth_step=5;
+if 0
+    for t = 1:numMC
+        Z = Scenario.Z{t};
+        % Initialisation
+        PPP.w = log(model.birth.w);
+        PPP.GGIW = model.birth.GGIW;
+        MBM.w = [];     % Global hypotheses weights
+        MBM.track = {}; % Locl hypotheses trees
+        MBM.table = []; % Global hypotheses look-up table
+        
+        estimates = cell(K,1);
+        
+        tic
+        for k = 1:K
+            %Print info
+            pause(0);
+            figure(1);
+    %         clf(1);
+    %         axis([-200,200,-200,200]);
+    axis(model.Scenario_range);
+            
+            hold on;
+             [t,k];
+                hold on;
+         disp(['smooth-PMBM' 'Scenario' + string(scenario)  'Monte Carlo runs' + string(t) 'TimeStep' + string(k)]);
+    %         plot(Z{k}(1,:),Z{k}(2,:),"*");
+     
+            %Update step
+            [PPP,MBM] = updatePMBM(PPP,MBM,Z{k},k,model);
+            for i=1:length(MBM.track)
+                for j=1:length(MBM.track{i})
+                    if mod(length(MBM.track{i}(j).Bern.GGIW),smooth_step)==0
+                        GGIW_=SmootherAdapter(MBM.track{i}(j).Bern,model);
+                        for s=0:smooth_step-1
+                           MBM.track{i}(j).Bern.GGIW(end-s).m= GGIW_(end-s).m;
+                           MBM.track{i}(j).Bern.GGIW(end-s).P= GGIW_(end-s).P;
+                           MBM.track{i}(j).Bern.GGIW(end-s).v= GGIW_(end-s).v;
+                           MBM.track{i}(j).Bern.GGIW(end-s).V= GGIW_(end-s).V;
+                        end
+                    end
+                end
+            end
+    
+%             %画图
+%             figure(1);
+%             for I=1:length(MBM.track)
+%                 if(~isempty(Z{k}))
+%                     for J=1:length(MBM.track{I})
+%                         plot(Z{k}(1,MBM.track{I}(J).assocHistory(end).meas(:)),Z{k}(2,MBM.track{I}(J).assocHistory(end).meas(:)),".");
+%                         for k1 = 1:length(MBM.track{I})
+%                             plot(MBM.track{I}(k1).Bern.GGIW(end).m(1),MBM.track{I}(k1).Bern.GGIW(end).m(2),'+');
+%                         end
+%                     end
+%                 end
+%             end
+            %Extract estimates (both estimate of the current time and the
+            %estimate of the full trajectory) 
+            [estimates{k},trajectoryEstimates{t}{k}] = estimator(MBM,model);
+            %Evaluate filtering performance using GOSPA
+            GOSPA_smooth(k,:,t) = GOSPAmetric(estimates{k},groundTruth{k},c,p);
+%             GOSPA(k,:,t) = GOSPAmetric_EDM(estimates{k},groundTruth{k},c,p);
+            %Prediction Step
+            if fig == 1 && t==1
+                figure(1);
+                 if ~isempty(Z{k})
+                    plot(Z{k}(1,:),Z{k}(2,:),"k.",'HandleVisibility','off');
+                 end
+        
+                i0=size(estimates{k}.g,2);
+                for j = 1:i0
+                    figure(1);
+                    hold on
+                    [x, y] = Sigmacircle(estimates{k}.x(1,j),estimates{k}.x(2,j),estimates{k}.X(:,:,j),2,1);
+        %             [x,y] = irregularcircle({estimates{k}.r{j,1}},estimates{k}.x(:,j),model.direction_angle,j);
+        
+                end
+            end
+            if k < K
+                [PPP,MBM] = predictPMBM(PPP,MBM,model);
+            end
+        end
+        simulation_time(t) = toc;
+    end
+
+    GOSPA02_smoothPMBM = sum(GOSPA_smooth,3) / numMC;
+    for i=1:4
+        figure(1+i)
+        plot(1:K,GOSPA02_smoothPMBM(:,i),'-r',LineWidth=2);
+        hold on;
+        title(model.GOSPAtitles{i});%
+        legend('Smooth-PMBM')
+    end
+rmpath(genpath('.\smoother_PMBM'));
+end
+
+
 
 %% KS-PMBM
 if 1
@@ -187,13 +306,16 @@ if scenario == 1
     modelparas1;
 elseif scenario == 2
     modelparas2;
+elseif scenario == 3
+    modelparas3;
+else
+    modelparas4;
 end
 
 GOSPA_improved = zeros(K,5,numMC);
 % GOSPA_original = zeros(K,4,numMC);
 trajectoryEstimates_improved = cell(numMC,1);
 % trajectoryEstimates_original = cell(numMC,1);
-simulation_time = zeros(numMC,1);
 
 for t = 1:numMC
     % Initialisation
@@ -210,11 +332,10 @@ for t = 1:numMC
     estimates = cell(K,1);
     trajectoryEstimates_improved{t} = cell(K,1);
 
-    cost_time = zeros(K,1);
-    tic
+    kspmbm_time=tic;
     for k = 1:K
+%         kstime=tic;
         disp(['KS-PMBM' 'Scenario' + string(scenario)  'Monte Carlo runs' + string(t) 'TimeStep' + string(k)]);
-        tic;
         pause(0);
         figure(1);
         axis(model.Scenario_range);
@@ -227,7 +348,8 @@ for t = 1:numMC
         [estimates_ks{k},trajectoryEstimates_improved{t}{k}] = estimator(MBM_improved,model);
 
 %         GOSPA_improved(k,:,t) = GOSPAmetric_EDM(estimates_improved{k},groundTruth_target_irregular{k},c,p);
-        GOSPA_ks(k,:,t) = GOSPAmetric_EDM(estimates_ks{k},groundTruth_target_irregular{k},c,p);
+            GOSPA_ks(k,:,t) = GOSPAmetric(estimates_ks{k},groundTruth{k},c,p);
+%         GOSPA_ks(k,:,t) = GOSPAmetric_EDM(estimates_ks{k},groundTruth_target_irregular{k},c,p);
         
         % 画出跟踪结果
 if fig == 1 && t==1
@@ -241,7 +363,7 @@ if fig == 1 && t==1
         for j = 1:i0
             figure(1);
             hold on
-            [x, y] = Sigmacircle(estimates_improved{k}.x(1,j),estimates_improved{k}.x(2,j),estimates_improved{k}.X(:,:,j),2,j);
+            [x, y] = Sigmacircle_ks(estimates_improved{k}.x(1,j),estimates_improved{k}.x(2,j),estimates_improved{k}.X(:,:,j),2,2);
 %             [x,y] = irregularcircle({estimates{k}.r{j,1}},estimates{k}.x(:,j),model.direction_angle,j);
         end
 end
@@ -250,10 +372,10 @@ end
             [PPP_improved,MBM_improved] = predictPMBM(PPP_improved,MBM_improved,model);
         end
 
-        cost_time(k) = toc;
+%         simulation_time(t,k,2) = toc(kstime);
     end
     
-    simulation_time(t) = toc;
+    simulation_time(t,3) = toc;
 end
 
  %100个时刻的GOSPA的平均
@@ -267,6 +389,12 @@ end
 
 rmpath(genpath('.\ks_pmbm'));
 end
+
+figure(1)
+plot(500,500,'-r',LineWidth=1);
+plot(500,500,'--b',LineWidth=1);
+plot(500,500,'--g',LineWidth=1);
+legend('EDM-PMBM','GGIW-PMBM','ks-PMBM');
 
 
 %% BGGIW-PMB and GBePMB
@@ -293,13 +421,31 @@ modelparas1_GB;
 motionmodel = paraOfMotionmodel(1);
 birthmodel = paraOfBirthmodel(6);
 measmodel = paraOfMeasmodel(1);
-else
+elseif SC==2
 T=100;
 modelparas2_GB;
 
 motionmodel = paraOfMotionmodel(2);
 birthmodel = paraOfBirthmodel(7);
 measmodel = paraOfMeasmodel(2);
+
+elseif SC==3
+    T=50;
+modelparas1_GB;
+
+motionmodel = paraOfMotionmodel(1);
+birthmodel = paraOfBirthmodel(5);
+measmodel = paraOfMeasmodel(1);
+
+elseif SC==4
+     T=100;
+modelparas1_GB;
+
+motionmodel = paraOfMotionmodel(1);
+birthmodel = paraOfBirthmodel(4);
+measmodel = paraOfMeasmodel(1);
+
+
 end
 
 % 产生真实轨迹
@@ -362,6 +508,8 @@ for i_filter = 1:N_filter
        continue
     end
 
+
+
     n_birth = length([ppp.w]); %出生PPP模型数量
     %%对比参数设置区
     array_clutter_est = [0 0 0];
@@ -374,6 +522,13 @@ for i_filter = 1:N_filter
 
     for i = 1:N_MC
     fprintf('\n%d\n',i);
+    
+    if i_filter==1
+        BGGIW_TIME=tic;
+    else
+        gBE_TIME=tic;
+    end
+
     % plotTrajectory_addition(gt,motionmodel,1);
 
         scenarioParas0.clutter_est = array_clutter_est(i_filter);%杂波率估计器开关
@@ -403,9 +558,14 @@ for i_filter = 1:N_filter
         [SC i_filter i]
         if i_filter==1
             disp(['BGGIW-PMB' 'Scenario' + string(SC)  'Monte Carlo runs' + string(i)]);
+            simulation_time(i,4) = toc;
+            toc;
         else
             disp(['GBePMB' 'Scenario' + string(SC)  'Monte Carlo runs' + string(i)]);
+            simulation_time(i,5) = toc;
+            toc;
         end
+
     end
 
     if i_filter==1
@@ -416,7 +576,7 @@ for i_filter = 1:N_filter
          GOSPA02_ = GOSPA02_GBePMB;
     end
 
-    tpye_set = ["m--","b--","G:"];
+    tpye_set = ["m--","b--","G-."];
     for i=1:4
      figure(1+i)
      plot(1:T,GOSPA02_(:,i),tpye_set(i_filter),LineWidth=2);
@@ -435,3 +595,6 @@ rmpath('.\GBePMB_simple\Third-Party-Code\');
 % 创建一个包含字符串和数字的元胞数组
 end
 
+% simulation_time1=simulation_time;
+% simulation_time(1:50,5)=simulation_time1(1:50,5)
+%% save timecost.mat simulation_time
