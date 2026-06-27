@@ -1,5 +1,7 @@
-Works：Extension Difference Mapping Based PMBM Filter for Non-Ellipsoidal Extended Target Tracking 
+Works： 
 The article has been published in Electronics and is open access. Those who are interested can access it at https://doi.org/10.3390/electronics15132822.
+Ye xu, Peng Li*, , Wenhui Wang, Youpeng Sun, et.l “Extension Difference Mapping Based PMBM Filter for Non-Ellipsoidal Extended Target Tracking”
+
 
 Author: Ye xu, Peng Li*, , Wenhui Wang, Youpeng Sun, et.l
 Year: 2026
