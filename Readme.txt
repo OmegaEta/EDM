@@ -1,5 +1,5 @@
-Works：
-Extension Difference Mapping Based PMBM Filter for Non-Ellipsoidal Extended Target Tracking 
+Works：Extension Difference Mapping Based PMBM Filter for Non-Ellipsoidal Extended Target Tracking 
+The article has been published in Electronics and is open access. Those who are interested can access it at https://doi.org/10.3390/electronics15132822.
 
 Author: Ye xu, Peng Li*, , Wenhui Wang, Youpeng Sun, et.l
 Year: 2026
@@ -18,6 +18,7 @@ THE Switchin  Lines  574 is control both the BGGIW-PMB and GBePMB.
                                 When "i_filter = 2", run the     GBePMB   filter.
 
 *EDM-PMBM || This Work
+https://doi.org/10.3390/electronics15132822
 
 *GGIW-PMBM From DOI: 10.23919/FUSION43075.2019.9011181
 Xia, Yuxuan, et al. "Extended target Poisson multi-Bernoulli mixture trackers based on sets of trajectories." 2019 22th International Conference on Information Fusion (FUSION). IEEE, 2019.
